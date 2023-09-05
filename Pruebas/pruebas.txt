@@ -1,12 +1,15 @@
+defVar var 0
+
 defProc putCB (c, b)
 {
     drop(c);
     letGo(b);
-    walk(1)
+    jump(c, b)
 }
 
 defProc goNorth(n)
-{
+{   
+    walk(n);
     while can(walk(1, north)) { walk(1, north)}
 }
 
@@ -15,7 +18,9 @@ defProc goWest ()
 {
     letGo(b);
     if can(walk(1,west)) { walk(1,west)} else nop();
-    goNorth(n);
-    walk(1)
+    goNorth(north);
+    walk(1);
+    var = 0;
+    nop()
 
 }

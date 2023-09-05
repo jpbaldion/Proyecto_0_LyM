@@ -29,8 +29,11 @@ comands = [ "jump",
             "nop"
             ]
 
+comands_1p = ["walk", "leap", "turn", "turnto", "drop", "get", "grab", "letGo"]
+comands_2p = ["jump", "walk", "leap"]
+
 comands2_V_D_O = ["walk","leap",]
-comands1_V = ["drop","get","grab","letGo"]
+comands1_V = ["drop","get","grab","letGo", "leap", "walk"]
 
 ultimo_proc = []
 
@@ -43,7 +46,47 @@ def leer_archivo(nombre_archivo: str)-> None:
         return "El archivo no fue encontrado"
     except Exception as e:
         return f"Ocurrió un error: {e}"
-    
+
+def esnumero(n: str):
+    if n.isnumeric():
+        return True
+    else:
+        if n in variables:
+            n = variables.get(n)
+            return esnumero(n)
+        else:
+            return False
+        
+def esorientacion(o: str):
+    if o in cardinals:
+        return True
+    else:
+        if o in variables:
+            o = variables.get(o)
+            return esorientacion(o)
+        else:
+            return False
+
+def esdireccion(d: str):
+    if d in directions:
+        return True
+    else:
+        if d in variables:
+            d = variables.get(d)
+            return esorientacion(d)
+        else:
+            return False
+        
+def valid_parametro_turn(p: str):
+    valores = ["left", "right", "around"]
+    if p in valores:
+        return True
+    elif p in variables:
+        p = variables.get(p)
+        return valid_parametro_turn(p)
+    else: 
+        return False
+
 def comprobar_emparejados(codigo: str)->list:
     """
         Función que comprueba que él código que le pasen por parámetro
@@ -191,7 +234,7 @@ def comprobar_variables(variable: list)->bool:
         
         valor = variable[2]
 
-        if (not valor.isnumeric()) and (not (valor in valores_permitidos)):
+        if (not valor.isnumeric()) and (not (valor in valores_permitidos) and not(valor in variables)):
             print("Las variables solo pueden tener como valor números, orientaciones o direcciones")
             return False
         
@@ -242,6 +285,8 @@ def comprobar_cabecera(cabecera: str)->bool:
     prodedures[nombre] = {}
     for p in parametros:
         prodedures[nombre][p] = ""
+    if ultimo_proc != []:
+        ultimo_proc.pop()
     ultimo_proc.append(nombre)
     return True
 
@@ -321,19 +366,51 @@ def seccionar_bloque(bloque: str)->list:
         i += 1
     return seccionado
 
-def comprobar_condicion_proc(condicion: str, procedimiento: str):
+def comprobar_condicion_proc(condicion: str, procedimiento: str)->bool:
     condicion = condicion.split("(", 1)
     cond = quitar_extremos(condicion[0])
     if not(cond in conditions):
         return False
     comando = quitar_extremos(condicion[1])
-    #TODO pasar comando por la funcion que comprueba comandos que vienen de un procedimiento
+    if not comprobarComandosDefProc(comando, procedimiento):
+        return False
     return True
+
 def comprobar_condicion(condicion: str):
-    pass
+    condicion = condicion.split("(", 1)
+    cond = quitar_extremos(condicion[0])
+    if not(cond in conditions):
+        return False
+    comando = quitar_extremos(condicion[1])
+    if not comprobarComandos(comando):
+        return False
+    return True
 
 def comprobar_if(condicion: str, sino: str):
-    pass
+    condicion = condicion.split("{", 1)
+    cond = condicion[0]
+    cuerpo = quitar_extremos(condicion[1])
+    sino = quitar_extremos(sino)
+
+    #Comprobar la condición
+    cond = cond.split(" ")
+    cond = quitar_extremos(cond[1])
+    if not comprobar_condicion(cond):
+        print("Mala condición")
+        return False
+    #Comprobar el cuerpo del if
+    cuerpo = quitar_extremos(cuerpo.rstrip("}"))
+    if comprobar_bloque(cuerpo):
+        return False
+    #comprobar el else
+    if sino.endswith(";"):
+        sino = quitar_extremos(sino.lstrip("else"))
+        sino = quitar_extremos(sino.lstrip("{"))
+        sino = quitar_extremos(sino.rstrip("}"))
+        if not comprobar_bloque(sino):
+            pass
+            #return False
+    return True
 
 def comprobar_if_proc(condicion: str, sino: str, procedimiento: str):
     condicion = condicion.split("{", 1)
@@ -349,25 +426,17 @@ def comprobar_if_proc(condicion: str, sino: str, procedimiento: str):
         return False
     #Comprobar el cuerpo del if
     cuerpo = quitar_extremos(cuerpo.rstrip("}"))
-    if comprobar_bloque(cuerpo):
-        print("F")
+    if comprobar_bloque_proc(cuerpo, procedimiento):
         return False
     #comprobar el else
     if sino.endswith(";"):
         sino = quitar_extremos(sino.lstrip("else"))
         sino = quitar_extremos(sino.lstrip("{"))
         sino = quitar_extremos(sino.rstrip("}"))
-        if not comprobar_bloque(sino):
+        if not comprobar_bloque_proc(sino, procedimiento):
             pass
             #return False
     return True
-
-#    print(cond)
-#    print(cuerpo)
-#    print(sino)
-
-    return True
-    
 
 def comprobar_while(ciclo: str):
     pass
@@ -376,24 +445,37 @@ def comprobar_while_proc(ciclo: str, procedimiento: str):
     pass
 
 def comprobar_bloque(bloque: list):
-    pass
+    print("BLOque", bloque)
+    i = 0
+    while i < len(bloque):
+        b = quitar_extremos(bloque[i])
+        if b.startswith("if"):
+            i += 1
+            sino = quitar_extremos(bloque[i])
+            if not comprobar_if(b, sino):
+                return False
+        elif b.startswith("while"):
+            pass
+        else:
+            if not (comprobarComandosDefProc(bloque[i])):
+                return False
+        i += 1
 
 def comprobar_bloque_proc(bloque: list, procedimiento: str):
     print("BLOque", bloque)
     i = 0
     while i < len(bloque):
-        print("I", i)
         b = quitar_extremos(bloque[i])
         if b.startswith("if"):
             i += 1
             sino = quitar_extremos(bloque[i])
             if not comprobar_if_proc(b, sino, procedimiento):
-                print("RAIos")
                 return False
         elif b.startswith("while"):
             pass
         else:
-            comprobarComandosDefProc(bloque[i], procedimiento)
+            if not (comprobarComandosDefProc(bloque[i], procedimiento)):
+                return False
         i += 1
 
 def comprobar_bloques(codigo_bloques: list)->bool:
@@ -419,8 +501,7 @@ def comprobar_bloques(codigo_bloques: list)->bool:
                 return False
         elif b.startswith("defProc"):
             cabecera = ""
-            cuerpo = ""
-            
+            cuerpo = ""       
 
             i = 0
             while b[i] != "{":
@@ -445,16 +526,14 @@ def comprobar_bloques(codigo_bloques: list)->bool:
                 cuerpo = cuerpo.split(";")
 
             print(cuerpo)
-            comprobar_bloque_proc(cuerpo, ultimo_proc)
+            if not comprobar_bloque_proc(cuerpo, ultimo_proc):
+                return False
             
-            #TODO Aquí luego se recorre la variable cuerpo comprobando linea por linea que todo esté bien.
-            # Se usaría la función de comprobar comandos y otra de pruebe if(s) y otra que pruebe while(s)
-            print(cuerpo)
         elif b.startswith("{"):
             bloque = seccionar_bloque(b)
             print(bloque)
-            #TODO Aquí luego se recorre la variable bloque comprobando linea por linea que todo esté bien.
-            # Se usaría la función de comprobar comandos y otra de pruebe if(s) y otra que pruebe while(s)
+            if not comprobar_bloque(cuerpo, ultimo_proc):
+                return False
         elif b.startswith("repeat"):
             repeticion = b.split("{", 1)
             
@@ -465,186 +544,304 @@ def comprobar_bloques(codigo_bloques: list)->bool:
             if not valid_repeat:
                 print(repeat)
                 return False
-            else: print("repeat valido")
             
             cuerpo = repeticion[1]
             cuerpo = quitar_extremos(cuerpo)
             cuerpo = cuerpo.rstrip("}")
             cuerpo = seccionar_bloque(cuerpo)
-
-
-
-            #TODO Aquí luego se recorre la variable cuerpo comprobando linea por linea que todo esté bien.
-            # Se usaría la función de comprobar comandos y otra de pruebe if(s) y otra que pruebe while(s)
+            if not comprobar_bloque(cuerpo, ultimo_proc):
+                return False
         else: 
             return False
     return True
 
-def comprobarComandos(bloque: list):
-    i = 0
-    while i < len(bloque):
-        bloque[i] = bloque[i].strip("\n")
-        bloque[i] = re.sub(" ","",bloque[i])
-        bloque[i] = bloque[i].lstrip(" ")
-        bloque[i] = bloque[i].rstrip(" ")
-        i += 1
-    x = 0
-    c = True
-    while x < len(bloque):
-        cadena = ""
-        for i in bloque[x]:
-            if cadena in comands2_V_D_O:
-                if len(bloque[x]) == 7:
-                    if bloque[x][-2].isnumeric():
-                        c = True
-                    else:
-                        c = False
-                elif len(bloque[x]) == 9:
-                    if bloque[x][len(cadena)+2].isnumeric():
-                        c = True
-                    else:
-                        c = False
-                    if bloque[x][len(cadena)+4] in directions or bloque[x][len(cadena)+4] in cardinals:
-                        c = True
-                    else:
-                        c = False
-            elif cadena in comands1_V:
-                pos_parent = bloque[x].index("(")
-                if bloque[x][pos_parent+1].isnumeric():
-                    c = True
-                else:
-                    c = False
-            elif cadena == "jump":
-                if bloque[x][len(cadena)+2].isnumeric():
-                        c = True
-                else:
-                    c = False
-                if bloque[x][len(cadena)+4].isnumeric():
-                    c = True
-                else:
-                    c = False
-            elif cadena == "turn":
-                if bloque[x][-2] in directions:
-                        c = True
-                else:
-                    c = False
-            elif cadena == "turnto":
-                if bloque[x][-2] in cardinals:
-                        c = True
-                else:
-                    c = False
-            elif cadena.lower() in ultimo_proc:
-                if bloque[x][len(cadena)+1].isnumeric():
-                    c = True
-                elif bloque[x][len(cadena)+1] in valores_permitidos:
-                    c = True
-                if bloque[x][len(cadena)+3].isnumeric():
-                    c = True
-                elif bloque[x][len(cadena)+3] in valores_permitidos:
-                    c = True
-                else:
-                    c = False
-            else:
-                cadena += i
-                
-        x += 1
-                    
-                    
-    return c
-    
-def comprobarComandosDefProc(comando: str, procedimiento: str)->bool:
+def comprobarComandos(comando: str):
     print("COMANDO", comando)
     comando = comando.split("(", 1)
     nombre = quitar_extremos(comando[0])
     print("NOMBRE", nombre)
     if nombre in comands:
-        print("siu")
-        pass
-    elif nombre.lower() in variables:
-        print("nou")
-        pass
-    elif nombre.lower() in prodedures:
-        print("cool")
-        pass
-    else:
-        print("NINGUNO")
-    # x = 0
-    # c = True
+        parametros = quitar_extremos(comando[1])
+        parametros = quitar_extremos(parametros).strip(";")
+        parametros = quitar_extremos(parametros).strip(")")
+        parametros = quitar_extremos(parametros)
+        parametros = parametros.split(",")
+        print("PP", parametros)
+        if len(parametros) > 2:
+            return False
+        elif len(parametros) == 2:
+            if nombre in comands_2p:
+                p1 = quitar_extremos(parametros[0])
+                p2 = quitar_extremos(parametros[1])
+                if nombre == "jump":
+                    if esnumero(p1) and esnumero(p2):
+                        return True
+                    else:
+                        return False
+                elif nombre == "walk" or nombre == "leap":
+                    if (esorientacion(p1) or esdireccion(p1)) and (esorientacion(p2) or esdireccion(p2)):
+                        return True
+                    else:
+                        return False
+            else:
+                return False
+        elif len(parametros) == 1:
+            if nombre in comands_1p:
+                p = parametros[0]
+                if nombre in comands1_V:
+                    if esnumero(p):
+                        return True
+                    else: 
+                        return False
+                elif nombre == "turn":
+                    if valid_parametro_turn(p):
+                        return True
+                    else: 
+                        return False
+                elif nombre == "turnto":
+                    if esorientacion(p):
+                        return True
+                    else: 
+                        return False
+                else:
+                    return False
+            else:
+                return False
+        elif len(parametros) == 0:
+            if nombre == "nop" and parametros[0] == "":
+                return True
+            else:
+                return False
+        else:
+            return False
 
-    # if cadena in comands2_V_D_O:
-    #     if len(bloque[x]) == 7:
-    #         if bloque[x][-2].isnumeric():
-    #             c = True
-    #         elif bloque[x][-2] in para:
-    #             c = True
-    #         else:
-    #             c = False
-    #     elif len(bloque[x]) == 9:
-    #         if bloque[x][len(cadena)+2].isnumeric():
-    #             c = True
-    #         elif bloque[x][len(cadena)+2] in para:
-    #             c = True
-    #         else:
-    #             c = False
-    #         if bloque[x][len(cadena)+4] in directions or bloque[x][len(cadena)+4] in cardinals:
-    #             c = True
-    #         elif bloque[x][len(cadena)+4] in para:
-    #             c = True
-    #         else:
-    #             c = False
-    # elif cadena in comands1_V:
-    #     pos_parent = bloque[x].index("(")
-    #     if bloque[x][pos_parent+1].isnumeric():
-    #         c = True
-    #     elif bloque[x][pos_parent+1] in para:
-    #         c = True
-    #     else:
-    #         c = False
-    # elif cadena == "jump":
-    #     if bloque[x][len(cadena)+2].isnumeric():
-    #             c = True
-    #     elif bloque[x][len(cadena)+2] in para:
-    #         c = True
-    #     else:
-    #         c = False
-    #     if bloque[x][len(cadena)+4].isnumeric():
-    #         c = True
-    #     elif bloque[x][len(cadena)+4] in para:
-    #         c = True
-    #     else:
-    #         c = False
-    # elif cadena == "turn":
-    #     if bloque[x][-2] in directions:
-    #             c = True
-    #     elif bloque[x][-2] in para:
-    #         c = True
-    #     else:
-    #         c = False
-    # elif cadena == "turnto":
-    #     if bloque[x][-2] in cardinals:
-    #             c = True
-    #     elif bloque[x][-2] in para:
-    #         c = True
-    #     else:
-    #         c = False
-    # elif cadena.lower() == proc:
-    #     if bloque[x][len(cadena)+1].isnumeric():
-    #         c = True
-    #     elif bloque[x][len(cadena)+1] in valores_permitidos:
-    #         c = True
-    #     if bloque[x][len(cadena)+3].isnumeric():
-    #         c = True
-    #     elif bloque[x][len(cadena)+3] in valores_permitidos:
-    #         c = True
-    #     else:
-    #         c = False
-    # else:
-    #     cadena += i
+    elif nombre.find(" = ") != -1:
+        nombre = nombre.lower()
+        nombre = nombre.rstrip(";")
+        print("NOmbre", nombre)
+        nombre = nombre.split("=")
+        print("NOmbre", nombre)
+        valor = quitar_extremos(nombre[1])
+        nombre = quitar_extremos(nombre[0])
         
-    # x += 1
+        if not(nombre in variables):
+            print("Variable no declarada")
+            return False
+        
+        if (not valor.isnumeric()) and (not (valor in valores_permitidos) and not(valor in variables)):
+            print("Las variables solo pueden tener como valor números, orientaciones o direcciones")
+            return False
+        
+        return True
+
+    elif nombre.lower() in prodedures:
+        nombre = nombre.lower()
+        parametros = quitar_extremos(comando[1])
+        parametros = quitar_extremos(parametros).strip(";")
+        parametros = quitar_extremos(parametros).strip(")")
+        parametros = quitar_extremos(parametros)
+        parametros = parametros.split(",")
+        parametrosProc = prodedures.get(nombre)
+        keysProc = list(parametrosProc.keys())
+        if len(parametrosProc) == len(parametros):
+            i = 0
+            while i < len(parametros):
+                p = quitar_extremos(parametros[i])
+                if esnumero(p) or esdireccion(p) or esorientacion(p) or valid_parametro_turn(p):
+                    if parametrosProc[keysProc[i]] == "N":
+                        if not(esnumero(p)):
+                            print("Tipo de parametro incorrecto pasado a un procedimiento")
+                            return False
+                    elif parametrosProc[keysProc[i]] == "O":
+                        if not(esorientacion(p)):
+                            print("Tipo de parametro incorrecto pasado a un procedimiento")
+                            return False
+                    elif parametrosProc[keysProc[i]] == "T":
+                        if not(valid_parametro_turn(p)):
+                            print("Tipo de parametro incorrecto pasado a un procedimiento")
+                            return False
+                    elif parametrosProc[keysProc[i]] == "DO":
+                        if not(esorientacion(p) or esdireccion(p)):
+                            print("Tipo de parametro incorrecto pasado a un procedimiento")
+                            return False
+                    elif parametrosProc[keysProc[i]] == "L":
+                        if not(p == ""):
+                            print("Tipo de parametro incorrecto pasado a un procedimiento")
+                            return False
+                        print("PRODEDURES", prodedures)
                     
-                    
-    # return c               
+                else:
+                    print("Parámetro invalido")
+                    return False
+                i += 1
+            return True
+    else:
+        print("Comando invalido")           
+    
+def comprobarComandosDefProc(comando: str, procedimiento: str)->bool:
+    print("COMANDO", comando)
+    procedimiento = procedimiento[0]
+    comando = comando.split("(", 1)
+    nombre = quitar_extremos(comando[0])
+    print("NOMBRE", nombre)
+    if nombre in comands:
+        parametrosValidos = prodedures.get(procedimiento)
+        parametros = quitar_extremos(comando[1])
+        parametros = quitar_extremos(parametros).strip(";")
+        parametros = quitar_extremos(parametros).strip(")")
+        parametros = quitar_extremos(parametros)
+        parametros = parametros.split(",")
+        print("PP", parametros)
+        if len(parametros) > 2:
+            return False
+        elif len(parametros) == 2:
+            if nombre in comands_2p:
+                p1 = quitar_extremos(parametros[0])
+                p2 = quitar_extremos(parametros[1])
+                if nombre == "jump":
+                    if esnumero(p1) and esnumero(p2):
+                        return True
+                    elif p1 in parametrosValidos and p2 in parametrosValidos:
+                        prodedures[procedimiento][p1] = "N"
+                        prodedures[procedimiento][p2] = "N"
+                        return True
+                    else:
+                        return False
+                elif nombre == "walk" or nombre == "leap":
+                    if (esorientacion(p1) or esdireccion(p1)) and (esorientacion(p2) or esdireccion(p2)):
+                        return True
+                    elif p1 in parametrosValidos and p2 in parametrosValidos:
+                        if parametrosValidos.get(p1) == "" and parametrosValidos.get(p2) == "": 
+                            prodedures[procedimiento][p1] = "DO"
+                            prodedures[procedimiento][p2] = "DO"
+                            return True
+                        else: 
+                            return False
+                    else:
+                        return False
+            else:
+                return False
+        elif len(parametros) == 1:
+            if nombre in comands_1p:
+                p = parametros[0]
+                if nombre in comands1_V:
+                    if esnumero(p):
+                        return True
+                    elif p in parametrosValidos:
+                        if parametrosValidos.get(p) == "":
+                            prodedures[procedimiento][p] = "N"
+                            return True
+                        else:
+                            return False
+                    else: 
+                        return False
+                elif nombre == "turn":
+                    if valid_parametro_turn(p):
+                        return True
+                    elif p in parametrosValidos:
+                        if parametrosValidos.get(p) == "":
+                            prodedures[procedimiento][p] = "T"
+                            return True
+                        else:
+                            return False
+                    else: 
+                        return False
+                elif nombre == "turnto":
+                    if esorientacion(p):
+                        return True
+                    elif p in parametrosValidos:
+                        if parametrosValidos.get(p) == "":
+                            prodedures[procedimiento][p] = "O"
+                            return True
+                        else:
+                            return False
+                    else: 
+                        return False
+                else:
+                    return False
+            else:
+                return False
+        elif len(parametros) == 0:
+            if nombre == "nop" and parametros[0] == "":
+                if parametrosValidos.get(parametros[0]) == "":
+                            prodedures[procedimiento][parametros[0]] = "L"
+                            return True
+                else:
+                    return False
+            else:
+                return False
+        else:
+            return False
+
+    elif nombre.find(" = ") != -1:
+        nombre = nombre.lower()
+        nombre = nombre.rstrip(";")
+        print("NOmbre", nombre)
+        nombre = nombre.split("=")
+        print("NOmbre", nombre)
+        valor = quitar_extremos(nombre[1])
+        nombre = quitar_extremos(nombre[0])
+        
+        if not(nombre in variables):
+            print("Variable no declarada")
+            return False
+        
+        if (not valor.isnumeric()) and (not (valor in valores_permitidos) and not(valor in variables)):
+            print("Las variables solo pueden tener como valor números, orientaciones o direcciones")
+            return False
+        
+        return True
+
+    elif nombre.lower() in prodedures:
+        nombre = nombre.lower()
+        parametrosValidos = prodedures.get(procedimiento)
+        parametros = quitar_extremos(comando[1])
+        parametros = quitar_extremos(parametros).strip(";")
+        parametros = quitar_extremos(parametros).strip(")")
+        parametros = quitar_extremos(parametros)
+        parametros = parametros.split(",")
+        parametrosProc = prodedures.get(nombre)
+        keysProc = list(parametrosProc.keys())
+        if len(parametrosProc) == len(parametros):
+            i = 0
+            while i < len(parametros):
+                p = quitar_extremos(parametros[i])
+                if p in parametrosValidos:
+                    tipo_p = parametrosValidos.get(p)
+                    if tipo_p == "":
+                        prodedures[procedimiento][p] = tipo_p
+                    else:
+                        return False
+                elif esnumero(p) or esdireccion(p) or esorientacion(p) or valid_parametro_turn(p):
+                    if parametrosProc[keysProc[i]] == "N":
+                        if not(esnumero(p)):
+                            print("Tipo de parametro incorrecto pasado a un procedimiento")
+                            return False
+                    elif parametrosProc[keysProc[i]] == "O":
+                        if not(esorientacion(p)):
+                            print("Tipo de parametro incorrecto pasado a un procedimiento")
+                            return False
+                    elif parametrosProc[keysProc[i]] == "T":
+                        if not(valid_parametro_turn(p)):
+                            print("Tipo de parametro incorrecto pasado a un procedimiento")
+                            return False
+                    elif parametrosProc[keysProc[i]] == "DO":
+                        if not(esorientacion(p) or esdireccion(p)):
+                            print("Tipo de parametro incorrecto pasado a un procedimiento")
+                            return False
+                    elif parametrosProc[keysProc[i]] == "L":
+                        if not(p == ""):
+                            print("Tipo de parametro incorrecto pasado a un procedimiento")
+                            return False
+                        print("PRODEDURES", prodedures)
+                else:
+                    print("Parámetro invalido")
+                    return False
+                i += 1
+            return True
+    else:
+        return False
+        print("Comando invalido")           
         
     
 def ejecutar():
