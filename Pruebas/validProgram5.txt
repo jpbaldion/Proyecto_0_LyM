@@ -1,0 +1,6 @@
+repeat 5 times {drom(1)}
+
+repeat 10 times
+{
+    walk(5);
+}

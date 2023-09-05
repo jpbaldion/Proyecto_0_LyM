@@ -1,0 +1,11 @@
+defProc putCB (c, b)
+{
+    drop(c);
+    letGo(b);
+    walk(1)
+}
+
+{
+    drop(5);
+    putCB(south, 2)
+}

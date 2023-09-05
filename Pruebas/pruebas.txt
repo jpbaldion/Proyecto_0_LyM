@@ -1,0 +1,21 @@
+defProc putCB (c, b)
+{
+    drop(c);
+    letGo(b);
+    walk(1)
+}
+
+defProc goNorth(n)
+{
+    while can(walk(1, north)) { walk(1, north)}
+}
+
+
+defProc goWest ()
+{
+    letGo(b);
+    if can(walk(1,west)) { walk(1,west)} else nop();
+    goNorth(n);
+    walk(1)
+
+}
